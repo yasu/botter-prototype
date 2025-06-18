@@ -4,7 +4,16 @@ from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime
 from dataclasses import dataclass
 import logging
-from numba import jit
+
+try:
+    from numba import jit
+    NUMBA_AVAILABLE = True
+except ImportError:
+    def jit(nopython=True):
+        def decorator(func):
+            return func
+        return decorator
+    NUMBA_AVAILABLE = False
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -114,6 +123,24 @@ class Backtester:
         logger.info(f"Starting backtest with {len(data)} candles")
         self.reset()
         
+        # Handle empty data
+        if data.empty or 'close' not in data.columns:
+            return BacktestResult(
+                initial_balance=self.initial_balance,
+                final_balance=self.initial_balance,
+                total_return=0.0,
+                sharpe_ratio=0.0,
+                max_drawdown=0.0,
+                win_rate=0.0,
+                total_trades=0,
+                profitable_trades=0,
+                avg_profit=0.0,
+                avg_loss=0.0,
+                profit_factor=0.0,
+                equity_curve=pd.Series([self.initial_balance]),
+                trades=[]
+            )
+        
         # Generate signals
         signals = strategy.generate_signals(data)
         
@@ -129,7 +156,7 @@ class Backtester:
         )
         
         # Calculate metrics
-        metrics = self._calculate_metrics(results['equity_curve'])
+        metrics = self._calculate_metrics(results['equity_curve'], results['trades'])
         
         return BacktestResult(
             initial_balance=self.initial_balance,
@@ -226,7 +253,7 @@ class Backtester:
             'trades': trades
         }
     
-    def _calculate_metrics(self, equity_curve: pd.Series) -> Dict[str, float]:
+    def _calculate_metrics(self, equity_curve: pd.Series, trades: List = None) -> Dict[str, float]:
         """Calculate performance metrics"""
         returns = equity_curve.pct_change().dropna()
         
@@ -245,10 +272,11 @@ class Backtester:
         max_drawdown = abs(drawdown.min()) * 100
         
         # Trade statistics
-        profitable_trades = [t for t in self.trades if t.pnl > 0]
-        losing_trades = [t for t in self.trades if t.pnl < 0]
+        all_trades = trades if trades is not None else []
+        profitable_trades = [t for t in all_trades if t.pnl > 0]
+        losing_trades = [t for t in all_trades if t.pnl < 0]
         
-        total_trades = len([t for t in self.trades if t.side == 'sell'])
+        total_trades = len([t for t in all_trades if t.side == 'sell'])
         profitable_count = len(profitable_trades)
         
         win_rate = (profitable_count / total_trades * 100) if total_trades > 0 else 0

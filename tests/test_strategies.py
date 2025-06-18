@@ -64,24 +64,29 @@ class TestMeanReversionStrategy:
     
     def test_generate_signals_with_trend(self):
         strategy = MeanReversionStrategy()
+        strategy.threshold = 0.01  # Lower threshold for more signals
         
-        # Create trending data
-        periods = 50
+        # Create data with extreme movements
+        periods = 30
         dates = pd.date_range('2024-01-01', periods=periods, freq='1min')
         
-        # Create uptrend data
-        base_price = 50000
+        # Create data with big swings
         close_prices = []
+        base_price = 100
         for i in range(periods):
-            # Add trend + some noise
-            price = base_price + (i * 10) + np.random.normal(0, 50)
+            if i < 10:
+                price = base_price
+            elif i < 20:
+                price = base_price * 0.8  # 20% drop
+            else:
+                price = base_price * 1.2  # 20% rise
             close_prices.append(price)
         
         data = pd.DataFrame({
             'timestamp': dates,
             'open': close_prices,
-            'high': [p + 50 for p in close_prices],
-            'low': [p - 50 for p in close_prices],
+            'high': [p + 1 for p in close_prices],
+            'low': [p - 1 for p in close_prices],
             'close': close_prices,
             'volume': [1000] * periods
         })

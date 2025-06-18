@@ -1,4 +1,10 @@
-import ccxt
+try:
+    import ccxt
+    CCXT_AVAILABLE = True
+except ImportError:
+    CCXT_AVAILABLE = False
+    ccxt = None
+
 import asyncio
 import pandas as pd
 from datetime import datetime, timedelta
@@ -17,14 +23,17 @@ class DataLoader:
         self.api_secret = api_secret or os.environ.get('BYBIT_API_SECRET')
         
         # Initialize Bybit exchange
-        self.exchange = ccxt.bybit({
-            'apiKey': self.api_key,
-            'secret': self.api_secret,
-            'enableRateLimit': True,
-            'options': {
-                'defaultType': 'spot',  # Can be 'spot', 'future', 'swap'
-            }
-        })
+        if CCXT_AVAILABLE:
+            self.exchange = ccxt.bybit({
+                'apiKey': self.api_key,
+                'secret': self.api_secret,
+                'enableRateLimit': True,
+                'options': {
+                    'defaultType': 'spot',  # Can be 'spot', 'future', 'swap'
+                }
+            })
+        else:
+            self.exchange = None
         
         # Database connection
         self.db = Database()

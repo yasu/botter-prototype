@@ -71,7 +71,7 @@ class Candle(Base):
 
 class Database:
     def __init__(self, db_url: Optional[str] = None):
-        self.db_url = db_url or os.environ.get("DB_URL", "postgresql+psycopg2://trader:traderpass@localhost:5432/autodbt")
+        self.db_url = db_url or os.environ.get("DATABASE_URL", os.environ.get("DB_URL", "sqlite:///trading_bot.db"))
         self.engine = create_engine(self.db_url)
         self.Session = sessionmaker(bind=self.engine)
     
