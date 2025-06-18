@@ -243,3 +243,48 @@ class DataLoader:
             'free': balance['free'],
             'used': balance['used']
         }
+    
+    def fetch_live_data(self, symbol: str, timeframe: str = '1m', limit: int = 1) -> pd.DataFrame:
+        """Fetch live data via REST API"""
+        candles = self.exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
+        
+        if not candles:
+            return pd.DataFrame()
+        
+        df = pd.DataFrame(candles, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        return df
+    
+    def _format_symbol_for_api(self, symbol: str) -> str:
+        """Format symbol for API (BTCUSDT -> BTC/USDT)"""
+        if '/' in symbol:
+            return symbol
+        # Assume USDT pairs for now
+        if symbol.endswith('USDT'):
+            base = symbol[:-4]
+            return f"{base}/USDT"
+        return symbol
+    
+    def _format_symbol_for_db(self, symbol: str) -> str:
+        """Format symbol for database (BTC/USDT -> BTCUSDT)"""
+        return symbol.replace('/', '')
+    
+    def _validate_ohlcv_data(self, df: pd.DataFrame) -> bool:
+        """Validate OHLCV data"""
+        required_columns = ['timestamp', 'open', 'high', 'low', 'close', 'volume']
+        
+        # Check required columns
+        if not all(col in df.columns for col in required_columns):
+            return False
+        
+        # Check for negative prices
+        price_columns = ['open', 'high', 'low', 'close']
+        for col in price_columns:
+            if (df[col] < 0).any():
+                return False
+        
+        # Check for negative volume
+        if (df['volume'] < 0).any():
+            return False
+        
+        return True

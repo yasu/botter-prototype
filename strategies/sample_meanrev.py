@@ -16,7 +16,13 @@ class MeanReversionStrategy:
     """
     
     def __init__(self, parameters: Dict[str, Any] = None):
-        # Default parameters
+        # Default parameters - keeping old names for compatibility
+        self.period = 20
+        self.threshold = 0.02
+        self.position_size = 0.1
+        self.version = '1.0'
+        
+        # Internal parameters for RSI strategy
         self.params = {
             'sma_period': 20,
             'rsi_period': 14,
@@ -27,10 +33,28 @@ class MeanReversionStrategy:
         
         # Update with custom parameters
         if parameters:
-            self.params.update(parameters)
+            if 'period' in parameters:
+                if parameters['period'] <= 0:
+                    raise ValueError("Period must be positive")
+                self.period = parameters['period']
+                self.params['sma_period'] = parameters['period']
+            
+            if 'threshold' in parameters:
+                if parameters['threshold'] < 0:
+                    raise ValueError("Threshold must be non-negative")
+                self.threshold = parameters['threshold']
+            
+            if 'position_size' in parameters:
+                if parameters['position_size'] <= 0 or parameters['position_size'] > 1:
+                    raise ValueError("Position size must be between 0 and 1")
+                self.position_size = parameters['position_size']
+            
+            # Update internal params
+            for key in ['sma_period', 'rsi_period', 'rsi_oversold', 'rsi_overbought']:
+                if key in parameters:
+                    self.params[key] = parameters[key]
         
         self.name = "Mean Reversion Strategy"
-        self.version = "1.0"
     
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
         """

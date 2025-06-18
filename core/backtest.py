@@ -49,6 +49,57 @@ class Backtester:
         self.equity_curve = []
         self.entry_price = 0.0
     
+    def _calculate_position_size(self, price: float, allocation: float) -> float:
+        """Calculate position size based on available balance and allocation"""
+        available_cash = self.balance * allocation
+        commission = available_cash * self.commission_rate
+        return (available_cash - commission) / price
+    
+    def _execute_trade(self, timestamp: datetime, price: float, signal_strength: float):
+        """Execute a trade based on signal"""
+        if signal_strength > 0 and self.position == 0:
+            # Buy signal
+            size = self._calculate_position_size(price, abs(signal_strength))
+            if size > 0:
+                value = size * price
+                commission = value * self.commission_rate
+                
+                self.position = size
+                self.balance -= (value + commission)
+                self.entry_price = price
+                
+                trade = Trade(
+                    timestamp=timestamp,
+                    side='buy',
+                    price=price,
+                    quantity=size,
+                    value=value,
+                    commission=commission
+                )
+                self.trades.append(trade)
+                
+        elif signal_strength < 0 and self.position > 0:
+            # Sell signal
+            value = self.position * price
+            commission = value * self.commission_rate
+            pnl = (price - self.entry_price) * self.position - commission
+            
+            self.balance += (value - commission)
+            
+            trade = Trade(
+                timestamp=timestamp,
+                side='sell',
+                price=price,
+                quantity=self.position,
+                value=value,
+                commission=commission,
+                pnl=pnl
+            )
+            self.trades.append(trade)
+            
+            self.position = 0.0
+            self.entry_price = 0.0
+    
     def run(self, strategy: Any, data: pd.DataFrame) -> BacktestResult:
         """
         Run backtest with given strategy and data
