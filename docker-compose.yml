@@ -1,0 +1,33 @@
+version: "3.9"
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: trader
+      POSTGRES_PASSWORD: traderpass
+      POSTGRES_DB: autodbt
+    ports:          # 外から psql で確認したい場合だけ
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  app:
+    build: .
+    depends_on:
+      - db
+    environment:
+      - DB_URL=postgresql+psycopg2://trader:traderpass@db:5432/autodbt
+      - BYBIT_API_KEY=${BYBIT_API_KEY}
+      - BYBIT_API_SECRET=${BYBIT_API_SECRET}
+    volumes:
+      - .:/app        # ローカル編集の即時反映
+    command: >
+      bash -c "
+        alembic upgrade head &&
+        streamlit run ui.py
+      "
+    ports:
+      - "8501:8501"
+
+volumes:
+  pgdata:
